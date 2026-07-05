@@ -1,0 +1,12 @@
+[project]
+name = "emf-beer"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi[standard]>=0.139.0",
+    "granian>=2.7.9",
+    "uvicorn[standard]>=0.50.0",
+    "voip[ai,audio]>=0.5.3",
+]
