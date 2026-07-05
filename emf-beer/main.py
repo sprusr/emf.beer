@@ -7,14 +7,15 @@ from .sip import Call, call, connect
 
 
 async def incoming_handler(session: Call):
-    await session.say("You have reached the beer hotline")
+    await session.play("test.wav")
+    await session.say("it's working!!!")
+    await session.transfer("123")
 
 
 async def outgoing_handler(session: Call):
     await session.play("test.wav")
-    await session.say(
-        "hhhh ...Important beer alert! There are new beers available!... hhhhh"
-    )
+    await session.say("it's working!!!")
+    await session.transfer("123")
 
 
 @asynccontextmanager
