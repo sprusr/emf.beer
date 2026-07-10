@@ -20,6 +20,7 @@ class Endpoint(pj.Endpoint):
 
         transport_config = pj.TransportConfig()
         transport_config.port = 5080
+        transport_config.boundAddress = settings.udp_bind_address
         self.transportCreate(pj.PJSIP_TRANSPORT_UDP, transport_config)
 
         self.libStart()
