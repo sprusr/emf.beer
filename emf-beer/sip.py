@@ -21,6 +21,8 @@ class Endpoint(pj.Endpoint):
         transport_config = pj.TransportConfig()
         transport_config.port = 5080
         transport_config.boundAddress = settings.udp_bind_address
+        if settings.public_ipv4:
+            transport_config.publicAddress = settings.public_ipv4
         self.transportCreate(pj.PJSIP_TRANSPORT_UDP, transport_config)
 
         self.libStart()
@@ -60,6 +62,12 @@ class Account(pj.Account):
         config.callConfig.timerSessExpiresSec = 1800
 
         config.mediaConfig.transportConfig.boundAddress = settings.udp_bind_address
+        config.mediaConfig.noVad = True
+
+        if settings.public_ipv4:
+            config.natConfig.iceEnabled = True
+            config.natConfig.iceManualHost.clear()
+            config.natConfig.iceManualHost.push_back(settings.public_ipv4)
 
         self.create(config, True)
 
