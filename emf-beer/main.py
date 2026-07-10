@@ -2,16 +2,16 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 
-from .sip import Account, Endpoint, HandlerCall
+from .sip import Account, Call, Endpoint, Phone
 
 
-async def incoming_handler(call: HandlerCall):
+async def incoming_handler(call: Call):
     await call.play("test.wav")
     await call.say("This is an incoming call!")
     await call.transfer(123)
 
 
-async def outgoing_handler(session: HandlerCall):
+async def outgoing_handler(session: Call):
     await session.play("test.wav")
     await session.say("This is an outgoing call!")
     await session.transfer(123)
@@ -21,8 +21,12 @@ async def outgoing_handler(session: HandlerCall):
 async def lifespan(app: FastAPI):
     endpoint = Endpoint()
     account = Account(handler=incoming_handler)
-    app.state.account = account
+    phone = Phone(account)
+
+    app.state.phone = phone
+
     yield
+
     endpoint.destroy()
 
 
@@ -36,5 +40,5 @@ def read_root():
 
 @app.get("/call/{to}")
 async def read_item(request: Request, to: int):
-    await request.app.state.account.call(to, outgoing_handler)
+    await request.app.state.phone.call(to, outgoing_handler)
     return "ok"

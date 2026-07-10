@@ -9,7 +9,6 @@ dependencies = [
     "librosa>=0.11.0",
     "pjsua2",
     "pocket-tts>=2.1.0",
-    "uvicorn[standard]>=0.50.0",
 ]
 
 [tool.uv.sources]
@@ -19,6 +18,9 @@ pjsua2 = { path = "vendor/pjproject-2.17/pjsip-apps/src/swig/python/dist/pjsua2-
 dev = [
     "ruff>=0.15.21",
 ]
+
+[tool.fastapi]
+entrypoint = "emf-beer.main:app"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "Q"]
