@@ -2,36 +2,28 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 
-from .settings import settings
-from .sip import Call, call, connect
+from .sip import Account, Endpoint, HandlerCall
 
 
-async def incoming_handler(session: Call):
+async def incoming_handler(call: HandlerCall):
+    await call.play("test.wav")
+    await call.say("This is an incoming call!")
+    await call.transfer(123)
+
+
+async def outgoing_handler(session: HandlerCall):
     await session.play("test.wav")
-    await session.say("it's working!!!")
-    await session.transfer("123")
-
-
-async def outgoing_handler(session: Call):
-    await session.play("test.wav")
-    await session.say("it's working!!!")
-    await session.transfer("123")
+    await session.say("This is an outgoing call!")
+    await session.transfer(123)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.sip = await connect(
-        username=settings.sip_username,
-        password=settings.sip_password,
-        handler=incoming_handler,
-    )
-    await call(
-        sip=app.state.sip,
-        to="52881",
-        handler=outgoing_handler,
-    )
+    endpoint = Endpoint()
+    account = Account(handler=incoming_handler)
+    app.state.account = account
     yield
-    app.state.sip.close()
+    endpoint.destroy()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -39,14 +31,10 @@ app = FastAPI(lifespan=lifespan)
 
 @app.get("/")
 def read_root():
-    return {"Hello": "World"}
+    return "Make a call with /call/{to}"
 
 
 @app.get("/call/{to}")
-async def read_item(request: Request, to: str):
-    await call(
-        sip=request.app.state.sip,
-        to=to,
-        handler=outgoing_handler,
-    )
+async def read_item(request: Request, to: int):
+    await request.app.state.account.call(to, outgoing_handler)
     return "ok"

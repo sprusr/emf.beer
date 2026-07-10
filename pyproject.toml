@@ -1,12 +1,26 @@
 [project]
 name = "emf-beer"
 version = "0.1.0"
-description = "Add your description here"
+description = "emf.beer"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "fastapi[standard]>=0.139.0",
     "librosa>=0.11.0",
+    "pjsua2",
+    "pocket-tts>=2.1.0",
     "uvicorn[standard]>=0.50.0",
-    "voip[ai,audio]>=0.5.3",
 ]
+
+[tool.uv.sources]
+pjsua2 = { path = "vendor/pjproject-2.17/pjsip-apps/src/swig/python/dist/pjsua2-2.17-cp314-cp314-macosx_15_0_arm64.whl" }
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.21",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "Q"]
+fixable = ["E", "F", "W", "I", "Q"]
+ignore = ["E501"]
