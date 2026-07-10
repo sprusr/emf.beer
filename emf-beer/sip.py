@@ -59,6 +59,8 @@ class Account(pj.Account):
         config.callConfig.timerMinSESec = 90
         config.callConfig.timerSessExpiresSec = 1800
 
+        config.mediaConfig.transportConfig.boundAddress = settings.udp_bind_address
+
         self.create(config, True)
 
     def onIncomingCall(self, prm: pj.OnIncomingCallParam):
