@@ -6,15 +6,15 @@ primary_region = 'lhr'
   force_https = true
   auto_stop_machines = 'stop'
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
   processes = ['app']
 
 [[services]]
+  protocol = 'udp'
   internal_port = 5080
-  protocol = "udp"
 
   [[services.ports]]
-    port = "5080"
+    port = 5080
 
 [[vm]]
   memory = '1gb'
