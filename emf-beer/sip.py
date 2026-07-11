@@ -1,5 +1,8 @@
 import asyncio
+import logging
 import tempfile
+import time
+from contextlib import contextmanager
 from typing import Callable, Coroutine
 
 import pjsua2 as pj
@@ -8,19 +11,39 @@ from pocket_tts import TTSModel
 
 from .settings import settings
 
-tts_model = TTSModel.load_model()
-voice_state = tts_model.get_state_for_audio_prompt("alba")
+logger = logging.getLogger("emf-beer.sip")
+
+
+@contextmanager
+def _timed(label: str):
+    """Log wall-clock time for a startup step so slow ones show up in logs."""
+    start = time.perf_counter()
+    try:
+        yield
+    finally:
+        logger.warning("startup: %s took %.2fs", label, time.perf_counter() - start)
+
+
+with _timed("TTSModel.load_model"):
+    tts_model = TTSModel.load_model()
+with _timed("get_state_for_audio_prompt"):
+    voice_state = tts_model.get_state_for_audio_prompt("alba")
 
 
 class Endpoint(pj.Endpoint):
     def __init__(self):
         super().__init__()
-        self.libCreate()
+        with _timed("libCreate"):
+            self.libCreate()
 
         config = pj.EpConfig()
         config.uaConfig.threadCnt = 0
         config.uaConfig.mainThreadOnly = True
-        self.libInit(config)
+        # Turn up pjsip's own (timestamped) logging so DNS resolution and
+        # registration delays are visible during startup. Lower once diagnosed.
+        config.logConfig.consoleLevel = 4
+        with _timed("libInit"):
+            self.libInit(config)
 
         transport_config = pj.TransportConfig()
         transport_config.port = 5080
@@ -28,14 +51,17 @@ class Endpoint(pj.Endpoint):
         if settings.public_ipv4:
             transport_config.publicAddress = settings.public_ipv4
 
-        self.transportCreate(pj.PJSIP_TRANSPORT_UDP, transport_config)
+        with _timed("transportCreate"):
+            self.transportCreate(pj.PJSIP_TRANSPORT_UDP, transport_config)
 
-        self.libStart()
+        with _timed("libStart"):
+            self.libStart()
         self.audDevManager().setNullDev()
 
-        for codec in self.codecEnum2():
-            keep = codec.codecId.startswith(("PCMU/", "PCMA/"))
-            self.codecSetPriority(codec.codecId, 255 if keep else 0)
+        with _timed("codec setup"):
+            for codec in self.codecEnum2():
+                keep = codec.codecId.startswith(("PCMU/", "PCMA/"))
+                self.codecSetPriority(codec.codecId, 255 if keep else 0)
 
         asyncio.create_task(self._loop())
 
@@ -82,21 +108,15 @@ class Account(pj.Account):
         if settings.public_ipv4:
             config.mediaConfig.transportConfig.publicAddress = settings.public_ipv4
 
-        self.create(config, True)
+        with _timed("account.create (REGISTER)"):
+            self.create(config, True)
 
     def onIncomingCall(self, prm: pj.OnIncomingCallParam):
-        asyncio.create_task(self._handle_incoming_call(prm.callId))
-
-    async def _handle_incoming_call(
-        self, call_id: int
-    ) -> None:
-        async with self.semaphore:
-            call = _Call(self, self.handler, call_id)
-            self.calls.append(call)
-            await asyncio.sleep(0.5)
-            op = pj.CallOpParam()
-            op.statusCode = pj.PJSIP_SC_ACCEPTED
-            call.answer(op)
+        call = _Call(self, self.handler, prm.callId)
+        self.calls.append(call)
+        op = pj.CallOpParam()
+        op.statusCode = pj.PJSIP_SC_ACCEPTED
+        call.answer(op)
 
 
 class Phone:

@@ -1,7 +1,10 @@
 FROM python:3.14.6-bookworm AS builder
 
+# UV_COMPILE_BYTECODE makes `uv` write .pyc files during install. Without it the
+# copied .venv is pure source, so every cold-start recompiles the whole torch/
+# scipy/librosa stack to bytecode on first import (~a minute on 2 vCPUs).
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
+    UV_COMPILE_BYTECODE=1 \
     HF_HOME=/app/hf-cache
 
 WORKDIR /app
@@ -26,7 +29,13 @@ RUN .venv/bin/python -c "from pocket_tts import TTSModel; m = TTSModel.load_mode
 
 FROM python:3.14.6-slim-bookworm
 
-ENV HF_HOME=/app/hf-cache
+# HF_HUB_OFFLINE stops huggingface_hub from making a network call to check each
+# file's etag on every load. The weights are baked into /app/hf-cache at build
+# time, so those HEAD requests are pure latency (and stall for ~a minute on
+# Fly's egress). Offline mode reads straight from the cache.
+ENV HF_HOME=/app/hf-cache \
+    HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1
 
 WORKDIR /app
 
@@ -37,4 +46,7 @@ COPY --from=builder /app/pyproject.toml /app/uv.lock ./
 COPY test.wav .
 COPY emf-beer/ ./emf-beer
 
-CMD ["/app/.venv/bin/uvicorn", "emf-beer.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+# Fly's Firecracker VMs don't add the container hostname to /etc/hosts. pjsip
+# resolves the local hostname during init, so without an entry it blocks on a
+# DNS timeout (seconds) on every startup. Map it to loopback before booting.
+CMD ["sh", "-c", "grep -q \"$(cat /etc/hostname)\" /etc/hosts || echo \"127.0.0.1 $(cat /etc/hostname)\" >> /etc/hosts; exec /app/.venv/bin/uvicorn emf-beer.main:app --host 0.0.0.0 --port 8000 --workers 1"]
