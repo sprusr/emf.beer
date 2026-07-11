@@ -51,6 +51,24 @@ primary_region = 'lhr'
   [[services.ports]]
     port = 4004
 
+[[services]]
+  protocol = 'udp'
+  internal_port = 4005
+  [[services.ports]]
+    port = 4005
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4006
+  [[services.ports]]
+    port = 4006
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4007
+  [[services.ports]]
+    port = 4007
+
 [[vm]]
   memory = '2gb'
   cpus = 1
