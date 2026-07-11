@@ -18,37 +18,38 @@ primary_region = 'lhr'
 [[services]]
   protocol = 'udp'
   internal_port = 5080
-
   [[services.ports]]
     port = 5080
 
 [[services]]
   protocol = 'udp'
   internal_port = 4000
-
   [[services.ports]]
     port = 4000
 
 [[services]]
   protocol = 'udp'
   internal_port = 4001
-
   [[services.ports]]
     port = 4001
 
 [[services]]
   protocol = 'udp'
   internal_port = 4002
-
   [[services.ports]]
     port = 4002
 
 [[services]]
   protocol = 'udp'
   internal_port = 4003
-
   [[services.ports]]
     port = 4003
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4004
+  [[services.ports]]
+    port = 4004
 
 [[vm]]
   memory = '2gb'
