@@ -36,7 +36,10 @@ app = FastAPI(lifespan=lifespan)
 
 @app.get("/")
 def read_root():
-    return f"{app.state.account.calls[0].getStreamStat(-1)}"
+    # call: pj.Call = app.state.account.calls[0]
+    # media: pj.AudioMedia = call.getAudioMedia(-1)
+    # return f"{media.getPortInfo()}"
+    return "ok"
 
 
 @app.get("/call/{to}")

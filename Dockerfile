@@ -30,4 +30,4 @@ COPY pyproject.toml uv.lock ./
 COPY emf-beer/ ./emf-beer
 COPY test.wav .
 
-CMD ["/app/.venv/bin/fastapi", "run", "--workers", "1"]
+CMD ["/app/.venv/bin/fastapi", "run"]

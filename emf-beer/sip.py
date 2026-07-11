@@ -28,15 +28,17 @@ class Endpoint(pj.Endpoint):
         self.libStart()
         self.audDevManager().setNullDev()
 
-        asyncio.create_task(self._onTimer())
+        asyncio.create_task(self._loop())
 
     def destroy(self):
         self.libDestroy()
 
-    async def _onTimer(self):
-        self.libHandleEvents(1000)
-        await asyncio.sleep(0.5)
-        asyncio.create_task(self._onTimer())
+    async def _loop(self):
+        while True:
+            result = self.libHandleEvents(0)
+            if result < 0:
+                print(f"libHandleEvents error: {-result}")
+            await asyncio.sleep(0.05)
 
 
 class Account(pj.Account):
