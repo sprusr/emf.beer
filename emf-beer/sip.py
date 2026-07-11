@@ -69,9 +69,9 @@ class Account(pj.Account):
 
         if settings.public_ipv4:
             config.mediaConfig.transportConfig.publicAddress = settings.public_ipv4
-            config.natConfig.iceEnabled = True
-            config.natConfig.iceManualHost.clear()
-            config.natConfig.iceManualHost.push_back(settings.public_ipv4)
+            # config.natConfig.iceEnabled = True
+            # config.natConfig.iceManualHost.clear()
+            # config.natConfig.iceManualHost.push_back(settings.public_ipv4)
 
         self.create(config, True)
 
