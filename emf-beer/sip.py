@@ -77,12 +77,19 @@ class Endpoint(pj.Endpoint):
 class Account(pj.Account):
     handler: Callable[[Call], Coroutine[None, None, None]]
     calls: list[_Call] = []
-    semaphore: asyncio.Semaphore
+    max_calls: int
+    _slot_freed: asyncio.Event
 
-    def __init__(self, handler: Callable[[Call], Coroutine[None, None, None]]):
+    def __init__(
+        self,
+        handler: Callable[[Call], Coroutine[None, None, None]],
+        max_calls: int = 3,
+    ):
         super().__init__()
         self.handler = handler
-        self.semaphore = asyncio.Semaphore(3)
+        self.max_calls = max_calls
+        # Set whenever a call ends, to wake outgoing calls queued for a slot.
+        self._slot_freed = asyncio.Event()
 
         config = pj.AccountConfig()
         config.idUri = f"sip:{settings.sip_username}@sip.emf.camp"
@@ -111,11 +118,25 @@ class Account(pj.Account):
         with _timed("account.create (REGISTER)"):
             self.create(config, True)
 
+    async def wait_for_slot(self) -> None:
+        """Block until fewer than max_calls are active (incoming + outgoing)."""
+        while len(self.calls) >= self.max_calls:
+            self._slot_freed.clear()
+            await self._slot_freed.wait()
+
+    def slot_freed(self) -> None:
+        """Wake anything queued in wait_for_slot(); call after removing a call."""
+        self._slot_freed.set()
+
     def onIncomingCall(self, prm: pj.OnIncomingCallParam):
         call = _Call(self, self.handler, prm.callId)
-        self.calls.append(call)
         op = pj.CallOpParam()
-        op.statusCode = pj.PJSIP_SC_ACCEPTED
+        if len(self.calls) >= self.max_calls:
+            # At capacity (incoming + outgoing). Reject with 486 Busy Here.
+            op.statusCode = pj.PJSIP_SC_BUSY_HERE
+        else:
+            self.calls.append(call)
+            op.statusCode = pj.PJSIP_SC_ACCEPTED
         call.answer(op)
 
 
@@ -128,12 +149,17 @@ class Phone:
     async def call(
         self, to: int, handler: Callable[[Call], Coroutine[None, None, None]]
     ):
-        async with self._account.semaphore:
-            call = _Call(self._account, handler)
-            self._account.calls.append(call)
+        await self._account.wait_for_slot()
+        call = _Call(self._account, handler)
+        self._account.calls.append(call)
+        try:
             await asyncio.sleep(0.5)
             call.makeCall(f"sip:{to}@sip.emf.camp", pj.CallOpParam(True))
             await call.done
+        finally:
+            if call in self._account.calls:
+                self._account.calls.remove(call)
+                self._account.slot_freed()
 
 
 class _Call(pj.Call):
@@ -158,8 +184,11 @@ class _Call(pj.Call):
         if info.state is pj.PJSIP_INV_STATE_CONFIRMED:
             asyncio.create_task(self._handle_call(self.handler))
         if info.state is pj.PJSIP_INV_STATE_DISCONNECTED:
-            self.done.set_result(None)
-            self.account.calls.remove(self)
+            if not self.done.done():
+                self.done.set_result(None)
+            if self in self.account.calls:
+                self.account.calls.remove(self)
+                self.account.slot_freed()
 
     def onCallTransferStatus(self, prm: pj.OnCallTransferStatusParam):
         if self.transferred is not None:
