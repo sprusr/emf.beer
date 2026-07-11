@@ -36,7 +36,7 @@ app = FastAPI(lifespan=lifespan)
 
 @app.get("/")
 def read_root():
-    return f"{app.state.account.calls[0].getStreamStat()}"
+    return f"{app.state.account.calls[0].getStreamStat(-1)}"
 
 
 @app.get("/call/{to}")
