@@ -23,6 +23,7 @@ async def lifespan(app: FastAPI):
     account = Account(handler=incoming_handler)
     phone = Phone(account)
 
+    app.state.account = account
     app.state.phone = phone
 
     yield
@@ -35,7 +36,7 @@ app = FastAPI(lifespan=lifespan)
 
 @app.get("/")
 def read_root():
-    return "Make a call with /call/{to}"
+    return f"{app.state.account.calls[0].getStreamStat()}"
 
 
 @app.get("/call/{to}")
