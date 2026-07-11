@@ -6,6 +6,8 @@
 app = 'emf-beer'
 primary_region = 'lhr'
 
+[build]
+
 [env]
   PUBLIC_IP_ADDRESS = '37.16.1.216'
 
