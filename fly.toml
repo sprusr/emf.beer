@@ -5,7 +5,7 @@ primary_region = 'lhr'
 
 [env]
   UDP_BIND_ADDRESS = 'fly-global-services'
-  PUBLIC_IP_ADDRESS = '37.16.1.216'
+  PUBLIC_IPV4 = '37.16.1.216'
 
 [http_service]
   internal_port = 8000
