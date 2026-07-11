@@ -1,3 +1,8 @@
+# fly.toml app configuration file generated for emf-beer on 2026-07-11T12:52:02Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
 app = 'emf-beer'
 primary_region = 'lhr'
 
@@ -18,54 +23,63 @@ primary_region = 'lhr'
 [[services]]
   protocol = 'udp'
   internal_port = 5080
+
   [[services.ports]]
     port = 5080
 
 [[services]]
   protocol = 'udp'
   internal_port = 4000
+
   [[services.ports]]
     port = 4000
 
 [[services]]
   protocol = 'udp'
   internal_port = 4001
+
   [[services.ports]]
     port = 4001
 
 [[services]]
   protocol = 'udp'
   internal_port = 4002
+
   [[services.ports]]
     port = 4002
 
 [[services]]
   protocol = 'udp'
   internal_port = 4003
+
   [[services.ports]]
     port = 4003
 
 [[services]]
   protocol = 'udp'
   internal_port = 4004
+
   [[services.ports]]
     port = 4004
 
 [[services]]
   protocol = 'udp'
   internal_port = 4005
+
   [[services.ports]]
     port = 4005
 
 [[services]]
   protocol = 'udp'
   internal_port = 4006
+
   [[services.ports]]
     port = 4006
 
 [[services]]
   protocol = 'udp'
   internal_port = 4007
+
   [[services.ports]]
     port = 4007
 
@@ -73,6 +87,6 @@ primary_region = 'lhr'
   memory = '4gb'
   cpus = 2
   memory_mb = 4096
-  cpu_kind = 'shared'
+  cpu_kind = 'performance'
   processes = ['app']
-  size = 'performance-2x'
+  size = 'performance-cpu-2x'
