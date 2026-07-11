@@ -16,14 +16,16 @@ RUN cd vendor/pjproject-2.17/pjsip-apps/src/swig/python && make && make wheel
 
 COPY pyproject.toml uv.lock ./
 
-RUN uv add vendor/pjproject-2.17/pjsip-apps/src/swig/python/dist/$(ls -AU vendor/pjproject-2.17/pjsip-apps/src/swig/python/dist | head -1)
+RUN cp vendor/pjproject-2.17/pjsip-apps/src/swig/python/dist/$(ls -AU vendor/pjproject-2.17/pjsip-apps/src/swig/python/dist | head -1) wheel.whl
+RUN uv add ./wheel.whl
 RUN uv sync --frozen
 
 FROM python:3.14.6-slim-bookworm
 
 WORKDIR /app
 
-COPY --from=builder /app .
+COPY --from=builder /app/.venv ./.venv
+COPY --from=builder /app/wheel.whl ./wheel.whl
 COPY emf-beer/ ./emf-beer
 COPY test.wav .
 

@@ -62,9 +62,13 @@ class Account(pj.Account):
         config.callConfig.timerSessExpiresSec = 1800
 
         config.mediaConfig.transportConfig.boundAddress = settings.udp_bind_address
+        config.mediaConfig.transportConfig.port = 4000
+        config.mediaConfig.transportConfig.portRange = 1
+        config.mediaConfig.transportConfig.randomizePort = False
         config.mediaConfig.noVad = True
 
         if settings.public_ipv4:
+            config.mediaConfig.transportConfig.publicAddress = settings.public_ipv4
             config.natConfig.iceEnabled = True
             config.natConfig.iceManualHost.clear()
             config.natConfig.iceManualHost.push_back(settings.public_ipv4)
