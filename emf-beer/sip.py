@@ -34,8 +34,8 @@ class Endpoint(pj.Endpoint):
         self.libDestroy()
 
     async def _onTimer(self):
-        self.libHandleEvents(10)
-        await asyncio.sleep(0.05)
+        self.libHandleEvents(1000)
+        await asyncio.sleep(0.5)
         asyncio.create_task(self._onTimer())
 
 
@@ -66,6 +66,7 @@ class Account(pj.Account):
         config.mediaConfig.transportConfig.portRange = 4
         config.mediaConfig.transportConfig.randomizePort = False
         config.mediaConfig.noVad = True
+        config.mediaConfig.ecTailLen = 0
 
         if settings.public_ipv4:
             config.mediaConfig.transportConfig.publicAddress = settings.public_ipv4

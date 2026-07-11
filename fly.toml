@@ -73,6 +73,6 @@ primary_region = 'lhr'
   memory = '4gb'
   cpus = 2
   memory_mb = 4096
-  cpu_kind = 'shared'
+  cpu_kind = 'performance'
   processes = ['app']
   size = 'performance-2x'
