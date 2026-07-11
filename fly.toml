@@ -70,9 +70,9 @@ primary_region = 'lhr'
     port = 4007
 
 [[vm]]
-  memory = '2gb'
-  cpus = 1
-  memory_mb = 2048
+  memory = '4gb'
+  cpus = 2
+  memory_mb = 4096
   cpu_kind = 'shared'
   processes = ['app']
-  size = 'shared-cpu-1x'
+  size = 'performance-2x'
