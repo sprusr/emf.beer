@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import tempfile
 from typing import Callable, Coroutine
 
@@ -12,12 +11,10 @@ from .settings import settings
 tts_model = TTSModel.load_model()
 voice_state = tts_model.get_state_for_audio_prompt("alba")
 
-logger = logging.getLogger(__name__)
 
 class Endpoint(pj.Endpoint):
     def __init__(self):
         super().__init__()
-        logger.warning("Creating lib!")
         self.libCreate()
 
         config = pj.EpConfig()
@@ -30,10 +27,15 @@ class Endpoint(pj.Endpoint):
         transport_config.boundAddress = settings.udp_bind_address
         if settings.public_ipv4:
             transport_config.publicAddress = settings.public_ipv4
+
         self.transportCreate(pj.PJSIP_TRANSPORT_UDP, transport_config)
 
         self.libStart()
         self.audDevManager().setNullDev()
+
+        for codec in self.codecEnum2():
+            keep = codec.codecId.startswith(("PCMU/", "PCMA/"))
+            self.codecSetPriority(codec.codecId, 255 if keep else 0)
 
         asyncio.create_task(self._loop())
 
@@ -42,29 +44,30 @@ class Endpoint(pj.Endpoint):
 
     async def _loop(self):
         while True:
-            result = self.libHandleEvents(0)
-            if result < 0:
-                logger.warning("libHandleEvents error: %s", -result)
+            self.libHandleEvents(0)
             await asyncio.sleep(0.05)
 
 
 class Account(pj.Account):
     handler: Callable[[Call], Coroutine[None, None, None]]
-
     calls: list[_Call] = []
+    semaphore: asyncio.Semaphore
 
     def __init__(self, handler: Callable[[Call], Coroutine[None, None, None]]):
         super().__init__()
         self.handler = handler
+        self.semaphore = asyncio.Semaphore(3)
 
         config = pj.AccountConfig()
         config.idUri = f"sip:{settings.sip_username}@sip.emf.camp"
+
         config.regConfig.registrarUri = "sip:sip.emf.camp"
 
-        creds = pj.AuthCredInfo(
-            "digest", "*", settings.sip_username, 0, settings.sip_password
+        config.sipConfig.authCreds.append(
+            pj.AuthCredInfo(
+                "digest", "*", settings.sip_username, 0, settings.sip_password
+            )
         )
-        config.sipConfig.authCreds.append(creds)
 
         config.callConfig.timerUse = pj.PJSUA_SIP_TIMER_OPTIONAL
         config.callConfig.timerMinSESec = 90
@@ -76,21 +79,24 @@ class Account(pj.Account):
         config.mediaConfig.transportConfig.randomizePort = False
         config.mediaConfig.noVad = True
         config.mediaConfig.ecTailLen = 0
-
         if settings.public_ipv4:
             config.mediaConfig.transportConfig.publicAddress = settings.public_ipv4
-            # config.natConfig.iceEnabled = True
-            # config.natConfig.iceManualHost.clear()
-            # config.natConfig.iceManualHost.push_back(settings.public_ipv4)
 
         self.create(config, True)
 
     def onIncomingCall(self, prm: pj.OnIncomingCallParam):
-        call = _Call(self, self.handler, prm.callId)
-        self.calls.append(call)
-        op = pj.CallOpParam()
-        op.statusCode = pj.PJSIP_SC_ACCEPTED
-        call.answer(op)
+        asyncio.create_task(self._handle_incoming_call(prm.callId))
+
+    async def _handle_incoming_call(
+        self, call_id: int
+    ) -> None:
+        async with self.semaphore:
+            call = _Call(self, self.handler, call_id)
+            self.calls.append(call)
+            await asyncio.sleep(0.5)
+            op = pj.CallOpParam()
+            op.statusCode = pj.PJSIP_SC_ACCEPTED
+            call.answer(op)
 
 
 class Phone:
@@ -102,16 +108,19 @@ class Phone:
     async def call(
         self, to: int, handler: Callable[[Call], Coroutine[None, None, None]]
     ):
-        call = _Call(self._account, handler)
-        self._account.calls.append(call)
-        logger.warning("Making call to %s", f"sip:{to}@sip.emf.camp")
-        await asyncio.sleep(0.5)
-        call.makeCall(f"sip:{to}@sip.emf.camp;transport=udp", pj.CallOpParam(True))
+        async with self._account.semaphore:
+            call = _Call(self._account, handler)
+            self._account.calls.append(call)
+            await asyncio.sleep(0.5)
+            call.makeCall(f"sip:{to}@sip.emf.camp", pj.CallOpParam(True))
+            await call.done
 
 
 class _Call(pj.Call):
     account: Account
     handler: Callable[[Call], Coroutine[None, None, None]]
+    done: asyncio.Future[None]
+    transferred: asyncio.Future[None] | None
 
     def __init__(
         self,
@@ -122,17 +131,19 @@ class _Call(pj.Call):
         super().__init__(acc, call_id)
         self.account = acc
         self.handler = handler
+        self.done = asyncio.Future()
 
     def onCallState(self, prm):
         info: pj.CallInfo = self.getInfo()
-        logger.warning("Call state change: %s", info.state)
         if info.state is pj.PJSIP_INV_STATE_CONFIRMED:
             asyncio.create_task(self._handle_call(self.handler))
         if info.state is pj.PJSIP_INV_STATE_DISCONNECTED:
+            self.done.set_result(None)
             self.account.calls.remove(self)
 
-    def onStreamCreated(self, prm: pj.OnStreamCreatedParam):
-        logger.warning("Stream created: %s", prm)
+    def onCallTransferStatus(self, prm: pj.OnCallTransferStatusParam):
+        if self.transferred is not None:
+            self.transferred.set_result(None)
 
     async def _handle_call(
         self, handler: Callable[[Call], Coroutine[None, None, None]]
@@ -189,7 +200,9 @@ class Call:
     async def transfer(self, to: int) -> None:
         op = pj.CallOpParam()
         op.statusCode = pj.PJSIP_SC_OK
+        self._call.transferred = asyncio.Future()
         self._call.xfer(f"sip:{to}@sip.emf.camp", op)
+        await self._call.transferred
 
     async def hangup(self) -> None:
         op = pj.CallOpParam()

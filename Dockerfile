@@ -1,7 +1,8 @@
 FROM python:3.14.6-bookworm AS builder
 
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    HF_HOME=/app/hf-cache
 
 WORKDIR /app
 
@@ -20,14 +21,20 @@ RUN cp -r vendor/pjproject-2.17/pjsip-apps/src/swig/python/dist ./wheels
 RUN uv add ./wheels/$(ls -AU wheels | head -1)
 RUN uv sync --frozen
 
+
+RUN .venv/bin/python -c "from pocket_tts import TTSModel; m = TTSModel.load_model(); m.get_state_for_audio_prompt('alba')"
+
 FROM python:3.14.6-slim-bookworm
+
+ENV HF_HOME=/app/hf-cache
 
 WORKDIR /app
 
 COPY --from=builder /app/.venv ./.venv
 COPY --from=builder /app/wheels ./wheels
+COPY --from=builder /app/hf-cache ./hf-cache
 COPY --from=builder /app/pyproject.toml /app/uv.lock ./
 COPY test.wav .
 COPY emf-beer/ ./emf-beer
 
-CMD ["/app/.venv/bin/uvicorn", "emf-beer.main:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "info"]
+CMD ["/app/.venv/bin/uvicorn", "emf-beer.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
