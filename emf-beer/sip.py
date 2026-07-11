@@ -1,16 +1,23 @@
 import asyncio
+import logging
+import tempfile
 from typing import Callable, Coroutine
 
 import pjsua2 as pj
+import soundfile as sf
+from pocket_tts import TTSModel
 
-from .audio import LibrosaAudioPlayer
 from .settings import settings
-from .tts import PocketTTSPlayer
 
+tts_model = TTSModel.load_model()
+voice_state = tts_model.get_state_for_audio_prompt("alba")
+
+logger = logging.getLogger(__name__)
 
 class Endpoint(pj.Endpoint):
     def __init__(self):
         super().__init__()
+        logger.warning("Creating lib!")
         self.libCreate()
 
         config = pj.EpConfig()
@@ -37,7 +44,7 @@ class Endpoint(pj.Endpoint):
         while True:
             result = self.libHandleEvents(0)
             if result < 0:
-                print(f"libHandleEvents error: {-result}")
+                logger.warning("libHandleEvents error: %s", -result)
             await asyncio.sleep(0.05)
 
 
@@ -97,7 +104,9 @@ class Phone:
     ):
         call = _Call(self._account, handler)
         self._account.calls.append(call)
-        call.makeCall(f"sip:{to}@sip.emf.camp", pj.CallOpParam())
+        logger.warning("Making call to %s", f"sip:{to}@sip.emf.camp")
+        await asyncio.sleep(0.5)
+        call.makeCall(f"sip:{to}@sip.emf.camp;transport=udp", pj.CallOpParam(True))
 
 
 class _Call(pj.Call):
@@ -116,20 +125,36 @@ class _Call(pj.Call):
 
     def onCallState(self, prm):
         info: pj.CallInfo = self.getInfo()
-        if info.state == pj.PJSIP_INV_STATE_CONFIRMED:
+        logger.warning("Call state change: %s", info.state)
+        if info.state is pj.PJSIP_INV_STATE_CONFIRMED:
             asyncio.create_task(self._handle_call(self.handler))
-        if info.state == pj.PJSIP_INV_STATE_DISCONNECTED:
+        if info.state is pj.PJSIP_INV_STATE_DISCONNECTED:
             self.account.calls.remove(self)
+
+    def onStreamCreated(self, prm: pj.OnStreamCreatedParam):
+        logger.warning("Stream created: %s", prm)
 
     async def _handle_call(
         self, handler: Callable[[Call], Coroutine[None, None, None]]
     ) -> None:
-        await asyncio.sleep(1)
+        await asyncio.sleep(0.5)
         handler_call = Call(self)
         await handler(handler_call)
+        await asyncio.sleep(0.5)
         op = pj.CallOpParam()
         op.statusCode = pj.PJSIP_SC_OK
         self.hangup(op)
+
+
+class AudioMediaPlayer(pj.AudioMediaPlayer):
+    done: asyncio.Future
+
+    def __init__(self):
+        super().__init__()
+        self.done = asyncio.Future()
+
+    def onEof2(self):
+        self.done.set_result(None)
 
 
 class Call:
@@ -139,12 +164,24 @@ class Call:
         self._call = call
 
     async def say(self, text: str) -> None:
-        player = PocketTTSPlayer(text, self._call.getAudioMedia(-1))
-        await player.wait()
+        tmp = tempfile.NamedTemporaryFile(suffix=".wav")
+        audio = tts_model.generate_audio(voice_state, text)
+        sf.write(tmp.name, audio.numpy(), tts_model.sample_rate, subtype="PCM_16")
+
+        media = self._call.getAudioMedia(-1)
+        player = AudioMediaPlayer()
+        player.createPlayer(tmp.name, pj.PJMEDIA_FILE_NO_LOOP)
+        player.startTransmit(media)
+        await player.done
+        player.stopTransmit(media)
 
     async def play(self, file: str) -> None:
-        player = LibrosaAudioPlayer(file, self._call.getAudioMedia(-1))
-        await player.wait()
+        media = self._call.getAudioMedia(-1)
+        player = AudioMediaPlayer()
+        player.createPlayer(file, pj.PJMEDIA_FILE_NO_LOOP)
+        player.startTransmit(media)
+        await player.done
+        player.stopTransmit(media)
 
     async def pause(self, seconds: float) -> None:
         await asyncio.sleep(seconds)

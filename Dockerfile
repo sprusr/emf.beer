@@ -26,8 +26,8 @@ WORKDIR /app
 
 COPY --from=builder /app/.venv ./.venv
 COPY --from=builder /app/wheels ./wheels
-COPY pyproject.toml uv.lock ./
-COPY emf-beer/ ./emf-beer
+COPY --from=builder /app/pyproject.toml /app/uv.lock ./
 COPY test.wav .
+COPY emf-beer/ ./emf-beer
 
-CMD ["/app/.venv/bin/fastapi", "run"]
+CMD ["/app/.venv/bin/uvicorn", "emf-beer.main:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "info"]
