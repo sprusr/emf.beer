@@ -20,7 +20,7 @@ async def outgoing_handler(session: Call):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     endpoint = Endpoint()
-    account = Account(handler=incoming_handler)
+    account = Account(handler=incoming_handler, max_calls=20)
     phone = Phone(account)
 
     app.state.account = account

@@ -7,6 +7,14 @@ primary_region = 'lhr'
   UDP_BIND_ADDRESS = 'fly-global-services'
   PUBLIC_IPV4 = '37.16.1.216'
 
+[[vm]]
+  memory = '4gb'
+  cpus = 2
+  memory_mb = 4096
+  cpu_kind = 'performance'
+  processes = ['app']
+  size = 'performance-2x'
+
 [http_service]
   internal_port = 8000
   force_https = true
@@ -69,10 +77,194 @@ primary_region = 'lhr'
   [[services.ports]]
     port = 4007
 
-[[vm]]
-  memory = '4gb'
-  cpus = 2
-  memory_mb = 4096
-  cpu_kind = 'performance'
-  processes = ['app']
-  size = 'performance-2x'
+[[services]]
+  protocol = 'udp'
+  internal_port = 4008
+  [[services.ports]]
+    port = 4008
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4009
+  [[services.ports]]
+    port = 4009
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4010
+  [[services.ports]]
+    port = 4010
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4011
+  [[services.ports]]
+    port = 4011
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4012
+  [[services.ports]]
+    port = 4012
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4013
+  [[services.ports]]
+    port = 4013
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4014
+  [[services.ports]]
+    port = 4014
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4015
+  [[services.ports]]
+    port = 4015
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4016
+  [[services.ports]]
+    port = 4016
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4017
+  [[services.ports]]
+    port = 4017
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4018
+  [[services.ports]]
+    port = 4018
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4019
+  [[services.ports]]
+    port = 4019
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4020
+  [[services.ports]]
+    port = 4020
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4021
+  [[services.ports]]
+    port = 4021
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4022
+  [[services.ports]]
+    port = 4022
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4023
+  [[services.ports]]
+    port = 4023
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4024
+  [[services.ports]]
+    port = 4024
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4025
+  [[services.ports]]
+    port = 4025
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4026
+  [[services.ports]]
+    port = 4026
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4027
+  [[services.ports]]
+    port = 4027
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4028
+  [[services.ports]]
+    port = 4028
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4029
+  [[services.ports]]
+    port = 4029
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4030
+  [[services.ports]]
+    port = 4030
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4031
+  [[services.ports]]
+    port = 4031
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4032
+  [[services.ports]]
+    port = 4032
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4033
+  [[services.ports]]
+    port = 4033
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4034
+  [[services.ports]]
+    port = 4034
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4035
+  [[services.ports]]
+    port = 4035
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4036
+  [[services.ports]]
+    port = 4036
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4037
+  [[services.ports]]
+    port = 4037
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4038
+  [[services.ports]]
+    port = 4038
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 4039
+  [[services.ports]]
+    port = 4039

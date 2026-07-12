@@ -83,7 +83,7 @@ class Account(pj.Account):
 
         config.mediaConfig.transportConfig.boundAddress = settings.udp_bind_address
         config.mediaConfig.transportConfig.port = 4000
-        config.mediaConfig.transportConfig.portRange = 4
+        config.mediaConfig.transportConfig.portRange = max_calls * 2
         config.mediaConfig.transportConfig.randomizePort = False
         config.mediaConfig.noVad = True
         config.mediaConfig.ecTailLen = 0
