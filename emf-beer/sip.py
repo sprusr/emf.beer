@@ -132,6 +132,12 @@ class Phone:
                 self._account.calls.remove(call)
                 self._account.slot_freed()
 
+    async def tts(self, text: str) -> tempfile._TemporaryFileWrapper[bytes]:
+        tmp = tempfile.NamedTemporaryFile(suffix=".wav")
+        audio = tts_model.generate_audio(voice_state, text)
+        sf.write(tmp.name, audio.numpy(), tts_model.sample_rate, subtype="PCM_16")
+        return tmp
+
 
 class _Call(pj.Call):
     account: Account

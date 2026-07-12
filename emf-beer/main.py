@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -37,6 +38,7 @@ app = FastAPI(lifespan=lifespan)
 async def get_root():
     return "BEER HOTLINE: 23377 (BEERS)"
 
+
 @app.get("/debug")
 async def get_debug():
     return f"{len(app.state.account.calls)} calls"
@@ -46,3 +48,17 @@ async def get_debug():
 async def get_debug_call(request: Request, to: int):
     await request.app.state.phone.call(to, outgoing_handler)
     return "call was completed"
+
+
+@app.get("/debug/test")
+async def get_debug_test(request: Request):
+    tts = await request.app.state.phone.tts("Hello and goodbye!!")
+
+    async def handler(call: Call):
+        await call.play(tts.name)
+
+    numbers = [5288]
+    await asyncio.gather(
+        *[request.app.state.phone.call(number, handler) for number in numbers]
+    )
+    return "calls were made"
