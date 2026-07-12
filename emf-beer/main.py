@@ -2,6 +2,8 @@ import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 
 from .sip import Account, Call, Endpoint, Phone
 
@@ -33,10 +35,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+templates = Jinja2Templates(directory="templates")
 
-@app.get("/")
-async def get_root():
-    return "BEER HOTLINE: 23377 (BEERS)"
+
+@app.get("/", response_class=HTMLResponse)
+async def get_root(request: Request):
+    call_count = len(app.state.account.calls)
+    return templates.TemplateResponse(
+        request=request, name="index.html", context={"call_count": call_count}
+    )
 
 
 @app.get("/debug")

@@ -32,5 +32,6 @@ COPY --from=builder /app/hf-cache ./hf-cache
 COPY --from=builder /app/pyproject.toml /app/uv.lock ./
 COPY test.wav .
 COPY emf-beer/ ./emf-beer
+COPY templates/ ./templates
 
 CMD ["/app/.venv/bin/uvicorn", "emf-beer.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
