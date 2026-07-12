@@ -6,9 +6,8 @@ from .sip import Account, Call, Endpoint, Phone
 
 
 async def incoming_handler(call: Call):
-    await call.play("test.wav")
-    await call.say("This is an incoming call!")
-    await call.transfer(123)
+    await call.say("The Robot Arms is currently closed!")
+    await call.say("The Caught Try is currently closed!")
 
 
 async def outgoing_handler(session: Call):
@@ -35,11 +34,15 @@ app = FastAPI(lifespan=lifespan)
 
 
 @app.get("/")
-def read_root():
+async def get_root():
+    return "BEER HOTLINE: 23377 (BEERS)"
+
+@app.get("/debug")
+async def get_debug():
     return f"{len(app.state.account.calls)} calls"
 
 
-@app.get("/call/{to}")
-async def read_item(request: Request, to: int):
+@app.get("/debug/call/{to}")
+async def get_debug_call(request: Request, to: int):
     await request.app.state.phone.call(to, outgoing_handler)
-    return "ok"
+    return "call was completed"
