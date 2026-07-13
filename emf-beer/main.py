@@ -10,8 +10,7 @@ from .sip import Account, Call, Endpoint, Phone
 
 
 async def incoming_handler(call: Call):
-    await call.say("The Robot Arms is currently closed!")
-    await call.say("The Caught Try is currently closed!")
+    await call.say(app.state.watcher.on_tap_summary())
 
 
 async def outgoing_handler(session: Call):

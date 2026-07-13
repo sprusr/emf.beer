@@ -130,14 +130,26 @@ class BarWatcher:
         await asyncio.gather(*[self._phone.call(n, handler) for n in numbers])
 
     @staticmethod
-    def _announcement_text(stocktype: dict) -> str:
+    def _beer_phrase(stocktype: dict) -> str:
+        """A spoken description of a single drink, e.g. "DEYA I Got You, 8.0 percent"."""
         parts = (stocktype.get("manufacturer"), stocktype.get("name"))
-        beer = " ".join(p for p in parts if p) or "a new beer"
-        text = f"New on tap at the Robot Arms: {beer}"
+        beer = " ".join(p for p in parts if p) or "a beer"
         abv = stocktype.get("abv")
-        if abv:
-            text += f", {abv} percent"
-        return text + "."
+        return f"{beer}, {abv} percent" if abv else beer
+
+    @classmethod
+    def _announcement_text(cls, stocktype: dict) -> str:
+        return f"New on tap at the Robot Arms: {cls._beer_phrase(stocktype)}."
+
+    def on_tap_summary(self) -> str:
+        phrases = [
+            self._beer_phrase(stocktype)
+            for line_id in sorted(self._lines)
+            if (stocktype := self._current.get(line_id)) is not None
+        ]
+        if not phrases:
+            return "There is nothing on tap at the Robot Arms right now."
+        return "Currently on tap at the Robot Arms: " + "; ".join(phrases) + "."
 
     def current_state(self) -> dict:
         return {
