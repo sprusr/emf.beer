@@ -9,7 +9,7 @@ from pocket_tts import TTSModel
 
 from .settings import settings
 
-tts_model = TTSModel.load_model(quantize=True)
+tts_model = TTSModel.load_model()
 voice_state = tts_model.get_state_for_audio_prompt("alba")
 
 
