@@ -1,4 +1,5 @@
 import asyncio
+import socket
 import tempfile
 from typing import Callable, Coroutine
 
@@ -10,6 +11,20 @@ from .settings import settings
 
 tts_model = TTSModel.load_model(quantize=True)
 voice_state = tts_model.get_state_for_audio_prompt("alba")
+
+
+def _resolve_ips(host: str) -> set[str]:
+    """Resolve a hostname to the set of IP addresses it points at."""
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except socket.gaierror:
+        return set()
+    return {str(info[4][0]) for info in infos}
+
+
+def _source_ip(src_address: str) -> str:
+    """Extract the IP from a pjsua2 srcAddress like "1.2.3.4:5060" or "[::1]:5060"."""
+    return src_address.rsplit(":", 1)[0].strip("[]")
 
 
 class Endpoint(pj.Endpoint):
@@ -53,6 +68,7 @@ class Account(pj.Account):
     handler: Callable[[Call], Coroutine[None, None, None]]
     calls: list[_Call] = []
     max_calls: int
+    allowed_source_ips: set[str]
     _slot_freed: asyncio.Event
 
     def __init__(
@@ -63,13 +79,14 @@ class Account(pj.Account):
         super().__init__()
         self.handler = handler
         self.max_calls = max_calls
+        self.allowed_source_ips = _resolve_ips(settings.sip_server)
 
         self._slot_freed = asyncio.Event()
 
         config = pj.AccountConfig()
-        config.idUri = f"sip:{settings.sip_username}@sip.emf.camp"
+        config.idUri = f"sip:{settings.sip_username}@{settings.sip_server}"
 
-        config.regConfig.registrarUri = "sip:sip.emf.camp"
+        config.regConfig.registrarUri = f"sip:{settings.sip_server}"
 
         config.sipConfig.authCreds.append(
             pj.AuthCredInfo(
@@ -103,6 +120,13 @@ class Account(pj.Account):
     def onIncomingCall(self, prm: pj.OnIncomingCallParam):
         call = _Call(self, self.handler, prm.callId)
         op = pj.CallOpParam()
+
+        src_ip = _source_ip(prm.rdata.srcAddress)
+        if src_ip not in self.allowed_source_ips:
+            op.statusCode = pj.PJSIP_SC_FORBIDDEN
+            call.answer(op)
+            return
+
         if len(self.calls) >= self.max_calls:
             op.statusCode = pj.PJSIP_SC_BUSY_HERE
         else:
