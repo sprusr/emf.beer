@@ -1,8 +1,10 @@
 import asyncio
 import socket
 import tempfile
+import threading
 from typing import Callable, Coroutine
 
+import numpy as np
 import pjsua2 as pj
 import soundfile as sf
 from pocket_tts import TTSModel
@@ -11,6 +13,17 @@ from .settings import settings
 
 tts_model = TTSModel.load_model()
 voice_state = tts_model.get_state_for_audio_prompt("alba")
+
+# The TTS model is not thread-safe, so serialise access to it. Generation runs
+# in a worker thread (see Call.say) to keep the event loop responsive; this lock
+# ensures only one generation touches the shared model at a time.
+_tts_lock = threading.Lock()
+
+
+def _chunk_to_pcm16(chunk) -> bytes:
+    """Convert a float32 TTS audio chunk into host-order 16-bit PCM bytes."""
+    samples = np.clip(chunk.numpy(), -1.0, 1.0)
+    return (samples * 32767.0).astype(np.int16).tobytes()
 
 
 def _resolve_ips(host: str) -> set[str]:
@@ -218,6 +231,64 @@ class AudioMediaPlayer(pj.AudioMediaPlayer):
         self.done.set_result(None)
 
 
+class StreamPlayer(pj.AudioMediaPort):
+    """An audio media port fed with PCM16 chunks as they are produced.
+
+    Audio is pushed into a buffer via feed() (typically from a TTS generation
+    worker thread) while pjmedia's clock thread pulls fixed-size frames out of
+    it in onFrameRequested(). This lets us start transmitting to the call as
+    soon as the first chunk is ready, rather than waiting for the whole
+    utterance to be generated and written to a file.
+    """
+
+    def __init__(self, loop: asyncio.AbstractEventLoop):
+        super().__init__()
+        self._loop = loop
+        self._buf = bytearray()
+        self._lock = threading.Lock()
+        self._finished = False
+        self._done_set = False
+        self.done: asyncio.Future[None] = loop.create_future()
+
+    def feed(self, pcm: bytes) -> None:
+        """Append generated PCM16 audio to the buffer. Thread-safe."""
+        with self._lock:
+            self._buf.extend(pcm)
+
+    def finish(self) -> None:
+        """Signal that no more audio will be fed; done resolves once drained."""
+        with self._lock:
+            self._finished = True
+
+    def _signal_done(self) -> None:
+        # Runs on pjmedia's clock thread, so hop back to the loop thread to
+        # resolve the future safely.
+        if not self._done_set:
+            self._done_set = True
+            self._loop.call_soon_threadsafe(
+                lambda: self.done.done() or self.done.set_result(None)
+            )
+
+    def onFrameRequested(self, frame: pj.MediaFrame) -> None:
+        capacity = frame.size
+        with self._lock:
+            take = min(capacity, len(self._buf))
+            chunk = bytes(self._buf[:take])
+            del self._buf[:take]
+            drained = self._finished and not self._buf
+
+        # Zero-pad to a full frame: leading/underrun silence while we wait for
+        # more audio, and the short final frame once generation is done.
+        if take < capacity:
+            chunk += bytes(capacity - take)
+
+        frame.type = pj.PJMEDIA_FRAME_TYPE_AUDIO
+        frame.buf = pj.ByteVector(chunk)
+
+        if drained:
+            self._signal_done()
+
+
 class Call:
     _call: _Call
 
@@ -225,16 +296,29 @@ class Call:
         self._call = call
 
     async def say(self, text: str) -> None:
-        tmp = tempfile.NamedTemporaryFile(suffix=".wav")
-        audio = tts_model.generate_audio(voice_state, text)
-        sf.write(tmp.name, audio.numpy(), tts_model.sample_rate, subtype="PCM_16")
+        loop = asyncio.get_running_loop()
+        player = StreamPlayer(loop)
+
+        fmt = pj.MediaFormatAudio()
+        fmt.init(pj.PJMEDIA_FORMAT_PCM, tts_model.sample_rate, 1, 20000, 16)
+        player.createPort("tts", fmt)
 
         media = self._call.getAudioMedia(-1)
-        player = AudioMediaPlayer()
-        player.createPlayer(tmp.name, pj.PJMEDIA_FILE_NO_LOOP)
         player.startTransmit(media)
-        await player.done
-        player.stopTransmit(media)
+        try:
+            # Generate off the event loop; chunks stream into the player as they
+            # become available and are transmitted by pjmedia's clock thread.
+            await asyncio.to_thread(self._generate, player, text)
+            player.finish()
+            await player.done
+        finally:
+            player.stopTransmit(media)
+
+    @staticmethod
+    def _generate(player: StreamPlayer, text: str) -> None:
+        with _tts_lock:
+            for chunk in tts_model.generate_audio_stream(voice_state, text):
+                player.feed(_chunk_to_pcm16(chunk))
 
     async def play(self, file: str) -> None:
         media = self._call.getAudioMedia(-1)
