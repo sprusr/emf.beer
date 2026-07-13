@@ -6,11 +6,13 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "fastapi[standard]>=0.139.0",
+    "httpx>=0.28",
     "jinja2>=3.1.6",
     "pjsua2",
     "pocket-tts[quantize]>=2.1.0",
     "soundfile>=0.12",
     "torch>=2.13.0",
+    "websockets>=16.1",
 ]
 
 [[tool.uv.index]]

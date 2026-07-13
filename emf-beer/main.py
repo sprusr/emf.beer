@@ -1,10 +1,11 @@
 import asyncio
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
+from .bar import BarWatcher
 from .sip import Account, Call, Endpoint, Phone
 
 
@@ -24,12 +25,18 @@ async def lifespan(app: FastAPI):
     endpoint = Endpoint()
     account = Account(handler=incoming_handler, max_calls=20)
     phone = Phone(account)
+    watcher = BarWatcher(phone)
+    watcher_task = asyncio.create_task(watcher.run())
 
     app.state.account = account
     app.state.phone = phone
+    app.state.watcher = watcher
 
     yield
 
+    watcher_task.cancel()
+    with suppress(asyncio.CancelledError):
+        await watcher_task
     endpoint.destroy()
 
 
@@ -49,6 +56,24 @@ async def get_root(request: Request):
 @app.get("/debug")
 async def get_debug():
     return f"{len(app.state.account.calls)} calls"
+
+
+@app.get("/debug/tap")
+async def get_debug_tap(request: Request):
+    return request.app.state.watcher.current_state()
+
+
+@app.get("/debug/announce-test")
+async def get_debug_announce_test(request: Request):
+    stocktype = {
+        "key": "stocktype/test",
+        "manufacturer": "DEYA",
+        "name": "I Got You!",
+        "abv": "8.0",
+        "fullname": "DEYA I Got You! (8.0% ABV)",
+    }
+    await request.app.state.watcher.announce(stocktype)
+    return "announcement was made"
 
 
 @app.get("/debug/call/{to}")
